@@ -15,7 +15,6 @@ do
 		num2=`expr $num2 + 1`
 		echo ${EFS_SGs[*]} | grep $SG >/dev/null 2>&1 && continue
 		EFS_SGs=($SG ${EFS_SGs[*]})
-
 	done
 	num1=`expr $num1 + 1`
 done
