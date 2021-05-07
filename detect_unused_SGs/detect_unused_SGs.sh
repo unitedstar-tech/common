@@ -19,9 +19,30 @@ do
 	num1=`expr $num1 + 1`
 done
 
+num1=0
+clusters=(`aws ecs list-clusters | awk '{print $2}'`)
+while [ $num1 -lt ${#clusters[*]} ]
+do
+	services=(`aws ecs list-services --cluster ${clusters[$num1]} | awk '{print $2}'` ${services[*]})
+	num2=0
+	while [ $num2 -lt ${#services[*]} ]
+	do
+		ECS_SGs=(`aws ecs describe-services --cluster ${clusters[$num1]} --services ${services[$num2]} | grep "SECURITYGROUPS" | sort -u | awk '{print $2}'` ${ECS_SGs[*]})
+		num2=`expr $num2 + 1`
+	done
+	num1=`expr $num1 + 1`
+done
+
+Default_SGs=(`aws ec2 describe-security-groups | grep "^\s*SECURITYGROUPS" | grep "default group\|default VPC security group" | sed -e "s/\s\{2,\}/\t/g" | awk -F "\t" '{print $3}' | sort -u`)
+
 SG=(`aws ec2 describe-security-groups --group-ids | grep SECURITYGROUPS | awk -F"\t" '{print $3}' | sort -u`)
 for CHECK in ${SG[*]}
 do
+	echo ${Default_SGs[*]} | grep $CHECK >/dev/null
+	if [ $? -eq 0 ]
+	then
+		continue
+	fi
 	aws ec2 describe-instances | grep $CHECK >/dev/null
 	if [ $? -eq 0 ]
 	then
@@ -52,7 +73,17 @@ do
 	then
 		continue
 	fi
+	aws lambda list-functions | grep $CHECK >/dev/null
+	if [ $? -eq 0 ]
+	then
+		continue
+	fi
 	echo ${EFS_SGs[*]} | grep $CHECK >/dev/null
+	if [ $? -eq 0 ]
+	then
+		continue
+	fi
+	echo ${ECS_SGs[*]} | grep $CHECK >/dev/null
 	if [ $? -eq 0 ]
 	then
 		continue
