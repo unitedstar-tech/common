@@ -14,5 +14,13 @@ for ip in ips:
 for vpc in vpcs:
 	if not ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['CloudFront']}, {'Name': 'vpc-id', 'Values': [vpc]}])['SecurityGroups']:
 		ec2.create_security_group(Description='CloudFront', GroupName='CloudFront', VpcId=vpc)
-	sg = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['CloudFront']}, {'Name': 'vpc-id', 'Values': [vpc]}])['SecurityGroups'][0]['GroupId']
-	ec2.authorize_security_group_ingress(GroupId=sg, IpPermissions=[{'FromPort': -1, 'IpProtocol': '-1', 'ToPort': -1, 'IpRanges': ip_permissions}])
+	sg_id = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['CloudFront']}, {'Name': 'vpc-id', 'Values': [vpc]}])['SecurityGroups'][0]['GroupId']
+	sg_ipranges = ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': ['CloudFront']}, {'Name': 'vpc-id', 'Values': [vpc]}])['SecurityGroups'][0]['IpPermissions'][0]['IpRanges']
+	for ip_permission in ip_permissions:
+		if not ip_permission['CidrIp'] in str(sg_ipranges):
+			ec2.authorize_security_group_ingress(GroupId=sg_id, IpPermissions=[{'FromPort': -1, 'IpProtocol': '-1', 'ToPort': -1, 'IpRanges': [ip_permission]}])
+			print(ip_permission)
+	for sg_iprange in sg_ipranges:
+		if not sg_iprange['CidrIp'] in ips:
+			ec2.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[{'FromPort': -1, 'IpProtocol': '-1', 'ToPort': -1, 'IpRanges': [sg_iprange]}])
+			print(sg_iprange)
