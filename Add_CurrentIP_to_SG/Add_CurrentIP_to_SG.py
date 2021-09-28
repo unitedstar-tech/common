@@ -22,9 +22,13 @@ def lambda_handler(event, context):
 		duration = 3
 	now = datetime.datetime.now()
 	invalid = now - datetime.timedelta(days=duration)
+	procs = list()
 	for region in regions:
 		args = (region, sip, sg_name, now, invalid)
-		Process(target=each_region, args=args).start()
+		proc = Process(target=each_region, args=args)
+		proc.start()
+		procs.append(proc)
+	proc_checker(procs)
 	return sip
 
 def each_region(region, sip, sg_name, now, invalid):
@@ -32,9 +36,14 @@ def each_region(region, sip, sg_name, now, invalid):
 	vpcs = list()
 	for vpc in ec2.describe_vpcs()['Vpcs']:
 		vpcs.append(vpc['VpcId'])
+	procs = list()
 	for vpc in vpcs:
 		args = (ec2, region, sip, vpc, sg_name, now, invalid)
-		Process(target=each_vpc, args=args).start()
+		proc = Process(target=each_vpc, args=args)
+		proc.start()
+		procs.append(proc)
+	proc_checker(procs)
+	print(region + ' done.')
 
 def each_vpc(ec2, region, sip, vpc, sg_name, now, invalid):
 	vpc_sg_name = vpc + '-' + sg_name
@@ -56,3 +65,12 @@ def each_vpc(ec2, region, sip, vpc, sg_name, now, invalid):
 		print("Add " + sip + " to " + str(sg_id) + ", " + str(vpc) + ", " + str(region) + " at " + str(now))
 	except:
 		print("Error!\t" + vpc + "\t" + sg_name)
+
+def proc_checker(procs):
+	while True:
+		flag = False
+		for i in procs:
+			if i.is_alive():
+				flag = True
+		if not flag:
+			break
