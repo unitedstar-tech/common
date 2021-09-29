@@ -74,7 +74,6 @@ tmp = extractor(tmp, 'VpcSecurityGroups')
 rds_instance = list()
 for i in tmp:
     rds_instance = list(set(rds_instance + extractor(i, 'VpcSecurityGroupId')))
-print(rds_instance)
 
 raw_data = elasticache.describe_cache_clusters()
 tmp = raw_data['CacheClusters']
@@ -84,11 +83,9 @@ while token:
     tmp.append(raw_data['CacheClusters'])
     token = raw_data.get('Marker')
 tmp = extractor(tmp, 'SecurityGroups')
-print(tmp)
 cache = list()
 for i in tmp:
     cache = list(set(cache + extractor(i, 'SecurityGroupId')))
-print(cache)
 
 for sg in sgs:
     if ec2.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg]}])['Reservations']:
