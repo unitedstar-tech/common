@@ -1,5 +1,5 @@
-#!/bin/pypy3
 import boto3
+import re
 ec2 = boto3.client('ec2')
 elb = boto3.client('elb')
 elb2 = boto3.client('elbv2')
@@ -13,12 +13,17 @@ def extractor(list_data, key):
     return data
 
 raw_data = ec2.describe_security_groups()
-sgs = raw_data['SecurityGroups']
+tmp = raw_data['SecurityGroups']
 token = raw_data.get('NextToken')
 while token:
     raw_data = ec2.describe_security_groups(NextToken=token)
-    sgs.append(raw_data['SecurityGroups'])
+    tmp.append(raw_data['SecurityGroups'])
     token = raw_data.get('NextToken')
+sgs = list()
+for sg in tmp:
+    if sg['GroupName'] == 'default':
+        continue
+    sgs.append(sg)
 sgs = extractor(sgs, 'GroupId')
 
 raw_data = elb.describe_load_balancers()
@@ -29,11 +34,11 @@ while token:
     tmp.append(raw_data['LoadBalancerDescriptions'])
     token = raw_data.get('NextMarker')
 tmp = extractor(tmp, 'SecurityGroups')
-elb = list()
+elb_sg = list()
 for i in tmp:
     for j in i:
-        elb.append(tmp)
-elb = list(set(elb))
+        elb_sg.append(tmp)
+elb_sg = list(set(elb_sg))
 
 raw_data = elb2.describe_load_balancers()
 tmp = raw_data['LoadBalancers']
@@ -43,13 +48,13 @@ while token:
     tmp.append(raw_data['LoadBalancers'])
     raw_data.get('NextMarker')
 tmp = extractor(tmp, 'SecurityGroups')
-elbv2 = list()
+elbv2_sg = list()
 for i in tmp:
     if not i:
         continue
     for j in list(i):
-        elbv2.append(j)
-elbv2 = list(set(elbv2))
+        elbv2_sg.append(j)
+elbv2_sg = list(set(elbv2_sg))
 
 raw_data = rds.describe_db_clusters()
 tmp = raw_data['DBClusters']
@@ -59,9 +64,9 @@ while token:
     tmp.append(raw_data['DBClusters'])
     token = raw_data.get('Marker')
 tmp = extractor(tmp, 'VpcSecurityGroups')
-rds_cluster = list()
+rds_cluster_sg = list()
 for i in tmp:
-    rds_cluster = list(set(rds_cluster + extractor(i, 'VpcSecurityGroupId')))
+    rds_cluster_sg = list(set(rds_cluster_sg + extractor(i, 'VpcSecurityGroupId')))
 
 raw_data = rds.describe_db_instances()
 tmp = raw_data['DBInstances']
@@ -71,9 +76,9 @@ while token:
     tmp.append(raw_data['DBInstances'])
     token = raw_data.get('Marker')
 tmp = extractor(tmp, 'VpcSecurityGroups')
-rds_instance = list()
+rds_instance_sg = list()
 for i in tmp:
-    rds_instance = list(set(rds_instance + extractor(i, 'VpcSecurityGroupId')))
+    rds_instance_sg = list(set(rds_instance_sg + extractor(i, 'VpcSecurityGroupId')))
 
 raw_data = elasticache.describe_cache_clusters()
 tmp = raw_data['CacheClusters']
@@ -83,22 +88,52 @@ while token:
     tmp.append(raw_data['CacheClusters'])
     token = raw_data.get('Marker')
 tmp = extractor(tmp, 'SecurityGroups')
-cache = list()
+elasticache_sg = list()
 for i in tmp:
-    cache = list(set(cache + extractor(i, 'SecurityGroupId')))
+    elasticache_sg = list(set(elasticache_sg + extractor(i, 'SecurityGroupId')))
+
+raw_data = ecs.list_clusters()
+clusters = raw_data['clusterArns']
+token = raw_data.get('nextToken')
+while token:
+    raw_data = ecs.list_clusters(nextToken=token)
+    clusters.append(raw_data['clusterArns'])
+    token = raw_data.get('nextToken')
+def ecs_services(cluster):
+    raw_data = ecs.list_services(cluster=cluster)
+    services = raw_data['serviceArns']
+    token = raw_data.get('nextToken')
+    while token:
+        raw_data = ecs.list_services(cluster=cluster, nextToken=token)
+        services.append(raw_data['serviceArns'])
+        token = raw_data.get('nextToken')
+    items = len(services)
+    num = 0
+    raw_data = list()
+    while num < items:
+        max = num + 10
+        if max >= items:
+            max = items
+        raw_data.append(ecs.describe_services(cluster=cluster, services=services[num:max])['services'])
+        num += 10
+    sgs = list()
+    for service in raw_data:
+        network = extractor(service, 'networkConfiguration')
+        for i in network:
+            if not i:
+                continue
+            sgs = list(set(sgs + i['awsvpcConfiguration'].get('securityGroups')))
+    return sgs
+ecs_sg = list()
+for cluster in clusters:
+    ecs_sg = list(set(ecs_sg + ecs_services(cluster)))
+
+used_sg = list(set(elb_sg + elbv2_sg + rds_cluster_sg + rds_instance_sg + elasticache_sg + ecs_sg))
 
 for sg in sgs:
     if ec2.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg]}])['Reservations']:
         continue
-    elif sg in elb:
-        continue
-    elif sg in elbv2:
-        continue
-    elif sg in rds_cluster:
-        continue
-    elif sg in elbv2:
-        continue
-    elif sg in cache:
+    elif sg in used_sg:
         continue
     else:
         print(sg)
