@@ -6,6 +6,7 @@ elb2 = boto3.client('elbv2')
 rds = boto3.client('rds')
 elasticache = boto3.client('elasticache')
 ecs = boto3.client('ecs')
+lmbd = boto3.client('lambda')
 def extractor(list_data, key):
     data = list()
     for i in list_data:
@@ -128,7 +129,21 @@ ecs_sg = list()
 for cluster in clusters:
     ecs_sg = list(set(ecs_sg + ecs_services(cluster)))
 
-used_sg = list(set(elb_sg + elbv2_sg + rds_cluster_sg + rds_instance_sg + elasticache_sg + ecs_sg))
+raw_data = lmbd.list_functions()
+functions = raw_data['Functions']
+token = raw_data.get('NextMarker')
+while token:
+    raw_data = lmbd.list_functions(Marker=token)
+    functions.append(raw_data['Functions'])
+    token = raw_data.get('NextMarker')
+functions = extractor(functions, 'FunctionArn')
+lambda_sg = list()
+for function in functions:
+    tmp = lmbd.get_function(FunctionName=function)['Configuration'].get('VpcConfig')
+    if tmp:
+        lambda_sg = list(set(lambda_sg + tmp.get('SecurityGroupIds')))
+
+used_sg = list(set(elb_sg + elbv2_sg + rds_cluster_sg + rds_instance_sg + elasticache_sg + ecs_sg + lambda_sg))
 
 for sg in sgs:
     if ec2.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg]}])['Reservations']:
