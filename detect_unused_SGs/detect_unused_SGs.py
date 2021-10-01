@@ -7,6 +7,7 @@ rds = boto3.client('rds')
 elasticache = boto3.client('elasticache')
 ecs = boto3.client('ecs')
 lmbd = boto3.client('lambda')
+efs = boto3.client('efs')
 def extractor(list_data, key):
     data = list()
     for i in list_data:
@@ -143,7 +144,22 @@ for function in functions:
     if tmp:
         lambda_sg = list(set(lambda_sg + tmp.get('SecurityGroupIds')))
 
-used_sg = list(set(elb_sg + elbv2_sg + rds_cluster_sg + rds_instance_sg + elasticache_sg + ecs_sg + lambda_sg))
+raw_data = efs.describe_file_systems()
+fs = raw_data['FileSystems']
+token = raw_data.get('Marker')
+while token:
+    raw_data = efs.describe_file_systems(Marker=token)
+    fs.append(raw_data['FileSystems'])
+    token = raw_data.get('Marker')
+fs = extractor(fs, 'FileSystemId')
+efs_sg = list()
+for i in fs:
+    fsmt = efs.describe_mount_targets(FileSystemId=i)['MountTargets']
+    fsmt = extractor(fsmt, 'MountTargetId')
+    for fsmt_id in fsmt:
+        efs_sg = efs_sg + efs.describe_mount_target_security_groups(MountTargetId=fsmt_id)['SecurityGroups']
+
+used_sg = list(set(elb_sg + elbv2_sg + rds_cluster_sg + rds_instance_sg + elasticache_sg + ecs_sg + lambda_sg + efs_sg))
 
 for sg in sgs:
     if ec2.describe_instances(Filters=[{'Name': 'instance.group-id', 'Values': [sg]}])['Reservations']:
