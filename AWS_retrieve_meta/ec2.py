@@ -113,7 +113,7 @@ def create_body(body, events, data):
 		for region in data:
 			for instance in region['data']:
 				if instance['Instance_ID'] == event['Resource']:
-                    body = body + '\n' + event['Event'] + '\t' + str(event['Time']) + '\t' + event['User'] + '\t' + event['Resource'] + '\t' + instance['Instance_type'] + '\t' + str(instance['EBS']) + '\t' + str(region['region'])
+					body = body + '\n' + event['Event'] + '\t' + str(event['Time']) + '\t' + event['User'] + '\t' + event['Resource'] + '\t' + instance['Instance_type'] + '\t' + str(instance['EBS']) + '\t' + str(region['region'])
 					flag = True
 					break
 			if flag:
@@ -152,5 +152,3 @@ def lambda_handler(event, context):
 		boto3.client('sns').publish(TopicArn=topic_arn, Message=body, Subject='Instance transaction notifier ' + datetime.datetime.strftime(datetime.date.today(), '%Y/%m/%d'))
 		return body
 	return 0
-
-lambda_handler(None, None)
