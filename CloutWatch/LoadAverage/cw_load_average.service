@@ -1,0 +1,10 @@
+[Unit]
+Description = CloudWatch Load Average monitor daemon
+
+[Service]
+ExecStart = /usr/local/bin/cw_load_average
+Restart = always
+Type = simple
+
+[Install]
+WantedBy = multi-user.target

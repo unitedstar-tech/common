@@ -1,0 +1,21 @@
+#!/bin/python3
+import multiprocessing
+import boto3
+import requests
+from time import sleep
+import os
+ami = requests.get('http://169.254.169.254/latest/meta-data/ami-id').text
+instance_id = requests.get('http://169.254.169.254/latest/meta-data/instance-id').text
+instance_type = requests.get('http://169.254.169.254/latest/meta-data/instance-type').text
+region = requests.get('http://169.254.169.254/latest/meta-data/placement/availability-zone').text
+regions = [region['RegionName'] for region in boto3.client('ec2', region_name='us-east-1').describe_regions()['Regions']]
+for i in regions:
+    if i in region:
+        region = i
+        break
+cpus = multiprocessing.cpu_count()
+while True:
+    load = os.getloadavg()[0]
+    la_util = load / cpus * 100
+    boto3.resource('cloudwatch', region_name=region).Metric('CWAgent','LoadAverage').put_data(MetricData=[{'MetricName': 'LoadAverage', 'Value': la_util, 'Unit': 'Percent', 'Dimensions': [{'Name': 'InstanceId', 'Value': instance_id}, {'Name': 'ImageId', 'Value': ami}, {'Name': 'InstanceType', 'Value': instance_type}]}])
+    sleep(60)
