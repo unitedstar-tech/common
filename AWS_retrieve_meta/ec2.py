@@ -113,7 +113,7 @@ def create_body(body, events, data):
 		for region in data:
 			for instance in region['data']:
 				if instance['Instance_ID'] == event['Resource']:
-					body = body + '\n' + event['Event'] + '\t' + str(event['Time']) + '\t' + event['User'] + '\t' + instance['Instance_name'] + '\t' + event['Resource'] + '\t' + instance['Instance_type'] + '\t' + str(instance['EBS']) + '\t' + str(region['region'])
+					body = body + '\n' + event['Event'] + '\t' + str(event['Time']) + '\t' + str(event['User']) + '\t' + instance['Instance_name'] + '\t' + event['Resource'] + '\t' + instance['Instance_type'] + '\t' + str(instance['EBS']) + '\t' + str(region['region'])
 					flag = True
 					break
 			if flag:
