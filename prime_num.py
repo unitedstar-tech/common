@@ -15,8 +15,9 @@ def check(num, prime_num):
         else:
             index += 1
             min_factor = prime_num[index]
-            if num / min_factor <= max_factor:
-                max_factor = math.floor(num / min_factor)
+            temp = num / min_factor
+            if temp <= max_factor:
+                max_factor = math.floor(temp)
             else:
                 max_factor -= 1
     return True
