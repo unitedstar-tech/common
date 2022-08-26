@@ -6,6 +6,7 @@ then
 else
 	python=`which python3`
 fi
+$python --version
 $python -m pip install -U pip
 num=`$python -m pip list -o | wc -l`
 num=`expr $num - 2`
