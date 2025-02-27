@@ -1,0 +1,45 @@
+#!/bin/bash
+export LANG=C
+
+# ARGS
+MFA_ARN="arn:aws:iam::123456789012:mfa/aws_cli"
+SRC_PROFILE="Account-A"
+VALID_DURATION="14400"
+
+check_opts=0
+while getopts "m:t:h" opt
+do
+    case $opt in
+        m)
+            MFA_CODE=$OPTARG
+            check_opts=`expr $check_opts + 1`;;
+        t)
+            TERRAFORM_MODE=$OPTARG
+            check_opts=`expr $check_opts + 2`;;
+        h)
+            echo "Usage: $0 [-m MFA_CODE] [-t TERRAFORM_ARGS]"
+            exit 0;;
+        \?)
+            echo "[WARNING] Usage: $0 [-m MFA_CODE] [-t TERRAFORM_ARGS]";;
+    esac
+done
+if [ $check_opts -ne 3 ]
+then
+    echo -e "[ERROR] Missing required options\n\nUsage: $0 [-m MFA_CODE] [-t TERRAFORM_ARGS]\n-h to see Help"
+    exit 1
+fi
+
+# Main
+DATA=`aws sts get-session-token --serial-number $MFA_ARN --profile $SRC_PROFILE --duration-seconds $VALID_DURATION --token-code $MFA_CODE`
+if [ $? -ne 0 ]
+then
+    echo "[ERROR] Invalid MFA code"
+    exit 1
+fi
+ACCESS_KEY=`echo $DATA | awk '{print $2}'`
+SECRET_ACCESS_KEY=`echo $DATA | awk '{print $4}'`
+TOKEN=`echo $DATA | awk '{print $5}'`
+export AWS_ACCESS_KEY_ID=$ACCESS_KEY
+export AWS_SECRET_ACCESS_KEY=$SECRET_ACCESS_KEY
+export AWS_SESSION_TOKEN=$TOKEN
+terraform $TERRAFORM_MODE

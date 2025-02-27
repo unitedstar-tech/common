@@ -1,0 +1,10 @@
+[profile Account-A]
+region = ap-northeast-1
+output = text
+mfa_serial = arn:aws:iam::123456789012:mfa/aws_cli
+[profile Account-B]
+role_arn = arn:aws:iam::987654321098:role/AWSAdministratorAccess
+source_profile = Account-A
+region = ap-northeast-1
+output = text
+mfa_serial = arn:aws:iam::123456789012:mfa/aws_cli
